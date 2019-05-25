@@ -1,17 +1,21 @@
 <template>
   <v-flex v-if="!loading">
+    <v-spacer/>
+    <h4 class="profit">{{locale.profit}}:
+      <span v-bind:class="[profit > 0 ? 'positive' : 'negative']">{{Math.abs(profit)}}</span>
+    </h4>
     <v-data-table :headers="headers" :items="cryptocurrencies" class="elevation-1" :rows-per-page-items="[10]" no-data-text>
       <template v-slot:items="prop">
         <tr>
           <td class="text-xs-center">
-              <router-link :to="{ name: 'currency', params: { id: prop.item.currencyId} }">{{prop.item.name}}</router-link>
+            <router-link :to="{ name: 'currency', params: { id: prop.item.currencyId} }">{{prop.item.name}}</router-link>
           </td>
           <td class="text-xs-center">{{prop.item.shortName}}</td>
-          <td class="text-xs-center">${{ prop.item.price}}</td>
-          <td v-bind:class="[prop.item.priceChange > 0 ? 'positive' : 'negative', 'text-xs-center']">{{prop.item.priceChange}}</td>
+          <td class="text-xs-center">${{prop.item.price}}</td>
+          <td v-bind:class="[prop.item.priceChange > 0 ? 'positive' : 'negative', 'text-xs-center']">{{Math.abs(prop.item.priceChange)}}</td>
           <td class="text-xs-center customprice">
             <input type="number" class="numberfield" @keyup="numberfieldKeyup($event, prop.item)" v-model="prop.item.amount"/>
-            <button class="submit" @click="submitSum(prop.item)">{{getSubmitText()}}</button>
+            <button class="submit" :disabled="!prop.item.amount" @click="submitSum(prop.item)">{{getSubmitText()}}</button>
           </td>
           <td class="text-xs-center">${{prop.item.sum}}</td>
         </tr>
@@ -53,14 +57,58 @@ export default {
         text: locale.valueOfCoin,
         value: 'sum'
       }],
-      loading: true
+      intervalId: null,
+      loading: true,
+      locale: locale,
+      profit: 0
     };
     return data;
   },
   created(){
     this.getCryptocurrencies();
+
+    if(!this.intervalId){
+      this.intervalId = setInterval(this.updateCryptocurrenciesData.bind(this), 60000);
+    }
   },
   methods: {
+    /**
+    * Calculates profit since last user visit
+    *
+    * @param {Object[]} cryptocurrencies Array of cryptocurrencies data objects
+    */
+    calculateProfit(cryptocurrencies){
+      let profit = 0;
+      let storageKey = 'currency_';
+      let storageData = localStorage;
+      let current;
+      let currentSum;
+      let match;
+      let matchSum;
+      for(let item in storageData) {
+        if(storageData.hasOwnProperty(item) && item.startsWith(storageKey)) {
+          current = JSON.parse(storageData[item]);
+          match = cryptocurrencies.find(this.findCurrencyById.bind(this, current.id));
+          if(match){
+            currentSum = this.getCurrencySum(current);
+            matchSum = this.getCurrencySum(match);
+            profit += matchSum - currentSum;
+          }
+        }
+      }
+      this.profit = profit;
+    },
+    /**
+    * Array find callback function
+    * Finds currency by id
+    *
+    * @param {Number} id Currency id
+    * @param {Object} item Array item, currency data object
+    * @return {Boolean} true if id matches any array item id
+    */
+    findCurrencyById(id, item){
+      return id === item.currencyId;
+    },
     /**
     * Sends the request to get cryptocurrencies
     */
@@ -74,23 +122,51 @@ export default {
     * @param {Object} response Cryptocurrencies response
     */
     getCryptocurrenciesSuccessfully(response){
-      let cryptocurrencies = [];
       let data = response.data.data;
+      let cryptocurrencies = [];
       let current;
+      let storageData;
       let item = data.length;
       while(item--) {
         current = data[item];
+        storageData = this.getCurrencyInfo(current.id);
+
         cryptocurrencies.push({
-          sum: localStorage.getItem('currentcy_' + current.id) || 0,
+          amount: storageData.amount || '',
+          sum: this.getCurrencySum(storageData),
           currencyId: current.id,
           name: current.name,
           shortName: current.symbol,
-          price: this.roundToTwoDecimals(current.quote.USD.price),
-          priceChange: this.roundToTwoDecimals(current.quote.USD.percent_change_24h)
+          price: current.quote.USD.price,
+          priceChange: current.quote.USD.percent_change_24h
         });
       }
+
       this.cryptocurrencies = cryptocurrencies;
       this.loading = false;
+      this.calculateProfit(cryptocurrencies);
+    },
+    /**
+    * Get currency info from local storage
+    *
+    * @param {Number} id Currency id
+    */
+    getCurrencyInfo(id){
+      let storageData = localStorage.getItem('currency_' + id);
+      let currencyInfo = storageData ? JSON.parse(storageData) : {};
+      return currencyInfo;
+    },
+    /**
+    * Get currency sum
+    *
+    * @param {Object} info Currency info
+    */
+    getCurrencySum(info) {
+      let result = 0;
+      if(info.amount && info.price) {
+        result = info.amount * info.price;
+      }
+      return result;
     },
     /**
     * Get submit button text form locale
@@ -114,6 +190,25 @@ export default {
       }
     },
     /**
+    * Save currency info to localStorage
+    *
+    * @param {Number} id Currency id
+    * @param {Number} price Currency price
+    * @param {Number} amount Currency amount
+    */
+    saveCurrencyInfo(id, price, amount){
+      let storageItemKey = 'currency_' + id;
+      if(amount === 0) {
+        localStorage.removeItem(storageItemKey);
+      }else {
+        localStorage.setItem(storageItemKey, JSON.stringify({
+          amount,
+          price,
+          id
+        }));
+      }
+    },
+    /**
     * Submits sum if amount is positive
     *
     * @param {object} rowData Row data object
@@ -121,22 +216,24 @@ export default {
     submitSum(rowData){
       let amount = parseFloat(rowData.amount);
       if(amount >= 0) {
-        let sum = amount * rowData.price;
         Object.assign(rowData, {
-          sum: sum,
+          sum: amount * rowData.price,
           value: ''
         });
-        localStorage.setItem('currentcy_' + rowData.currencyId, sum);
+        rowData.amount = amount || '';
+        this.saveCurrencyInfo(rowData.currencyId, rowData.price, rowData.amount);
       }
     },
     /**
-    * Rounds number to two decimals
-    *
-    * @param {Number} numb Number that needs to be rounded
-    * @return {Number} Rounded number
+    * Manages update cryptocurrencies data interval
     */
-    roundToTwoDecimals(numb) {
-      return Number(numb.toFixed(2));
+    updateCryptocurrenciesData(){
+      if(this.$route.name === 'home') {
+        this.getCryptocurrencies();
+      } else {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
     }
   }
 };
@@ -166,6 +263,9 @@ export default {
 .positive {
   color: green;
 }
+.profit {
+  margin: 15px;
+}
 .submit {
   background-color: darkgray;
   color: white;
@@ -180,6 +280,9 @@ export default {
 .submit:disabled {
   background-color: lightgray;
   cursor: default;
+}
+.submit:disabled:hover {
+  background-color: lightgray;
 }
 .submit:hover {
   background-color: gray;

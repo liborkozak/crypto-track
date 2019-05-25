@@ -11,6 +11,7 @@ export default new Vuex.Store({
       name: 'Name',
       price: '$ Value',
       priceChange: 'last 24h',
+      profit: 'Profit since last visit',
       shortName: 'Short name',
       submit: 'Submit',
       since: 'Since',

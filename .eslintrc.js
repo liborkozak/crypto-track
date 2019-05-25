@@ -16,6 +16,7 @@ module.exports = {
     parser: 'babel-eslint'
   },
   globals: {
-    Axios: true
+    Axios: true,
+    spyOn: true
   }
 };

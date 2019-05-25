@@ -2,23 +2,23 @@ module.exports = {
   devServer: {
     proxy: {
       '/cryptocurrencies': {
-        target: 'https://sandbox-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=50&convert=USD&CMC_PRO_API_KEY=63c5f483-1133-4268-9f30-f22ada807c90',
+        target: 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=50&convert=USD&CMC_PRO_API_KEY=7f43ecd8-d8a2-48d5-ad64-097572f639e6',
         changeOrigin: true,
         headers: {
-          'X-CMC_PRO_API_KEY': '63c5f483-1133-4268-9f30-f22ada807c90'
+          'X-CMC_PRO_API_KEY': '7f43ecd8-d8a2-48d5-ad64-097572f639e6'
         },
         ws: true
       },
       '/cryptocurrency/*': {
-        target: 'https://sandbox-api.coinmarketcap.com',
+        target: 'https://pro-api.coinmarketcap.com',
         changeOrigin: true,
         headers: {
-          'X-CMC_PRO_API_KEY': '63c5f483-1133-4268-9f30-f22ada807c90'
+          'X-CMC_PRO_API_KEY': '7f43ecd8-d8a2-48d5-ad64-097572f639e6'
         },
         ws: true,
-        pathRewrite: function (path, req) {
+        pathRewrite: function (path) {
           let id = path.split('?id=')[1];
-          return path.replace('/cryptocurrency?id=' + id, '/v1/cryptocurrency/info?id=' + id + '&CMC_PRO_API_KEY=63c5f483-1133-4268-9f30-f22ada807c90');
+          return path.replace('/cryptocurrency?id=' + id, '/v1/cryptocurrency/info?id=' + id + '&CMC_PRO_API_KEY=7f43ecd8-d8a2-48d5-ad64-097572f639e6');
         }
       }
     }
