@@ -13,7 +13,9 @@ export default new Vuex.Store({
       priceChange: 'last 24h',
       shortName: 'Short name',
       submit: 'Submit',
-      valueOfCoin: '$ value of your coin'
+      since: 'Since',
+      valueOfCoin: '$ value of your coin',
+      website: 'Website'
     }
   },
   mutations: {

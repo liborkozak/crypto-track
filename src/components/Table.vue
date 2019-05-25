@@ -1,5 +1,5 @@
 <template>
-  <v-flex>
+  <v-flex v-if="!loading">
     <v-data-table :headers="headers" :items="cryptocurrencies" class="elevation-1" :rows-per-page-items="[10]" no-data-text>
       <template v-slot:items="prop">
         <tr>
@@ -52,7 +52,8 @@ export default {
         align: 'center',
         text: locale.valueOfCoin,
         value: 'sum'
-      }]
+      }],
+      loading: true
     };
     return data;
   },
@@ -89,6 +90,7 @@ export default {
         });
       }
       this.cryptocurrencies = cryptocurrencies;
+      this.loading = false;
     },
     /**
     * Get submit button text form locale
